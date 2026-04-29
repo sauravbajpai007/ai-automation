@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Operations Dashboard</title>
+    <link rel="stylesheet" href="/dashboard.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="top">
+        <div>
+          <h1>AI operations dashboard</h1>
+          <p class="sub">Log analysis, deploy gate, and CI report snapshots</p>
+        </div>
+        <div class="toolbar">
+          <span class="meta" id="updated">Loading…</span>
+          <button type="button" id="refresh">Refresh</button>
+        </div>
+      </header>
+
+      <div id="load-error" class="banner error hidden" role="alert"></div>
+
+      <div class="grid two">
+        <section class="card">
+          <h2>Log analysis</h2>
+          <div class="stack">
+            <div>
+              <span id="la-severity" class="badge neutral">—</span>
+            </div>
+            <dl class="kv">
+              <dt>Root cause</dt>
+              <dd id="la-root">—</dd>
+              <dt>Suggested fix</dt>
+              <dd id="la-fix">—</dd>
+              <dt>Signals</dt>
+              <dd id="la-stats">—</dd>
+            </dl>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Deploy decision</h2>
+          <div class="stack">
+            <div>
+              <span id="dd-deploy" class="badge neutral">—</span>
+              <span class="meta" style="margin-left: 0.5rem">
+                Confidence: <strong id="dd-confidence">—</strong>
+              </span>
+            </div>
+            <dl class="kv">
+              <dt>Reason</dt>
+              <dd id="dd-reason">—</dd>
+              <dt>Blockers</dt>
+              <dd id="dd-blockers">—</dd>
+            </dl>
+          </div>
+        </section>
+      </div>
+
+      <section class="card" style="margin-top: 1rem">
+        <h2>CI / AI reports</h2>
+        <p class="meta" id="rep-meta" style="margin: 0 0 0.75rem">—</p>
+
+        <details class="report" open>
+          <summary>Code review</summary>
+          <pre id="rep-code" class="report-body empty">—</pre>
+        </details>
+        <details class="report">
+          <summary>Security</summary>
+          <pre id="rep-sec" class="report-body empty">—</pre>
+        </details>
+        <details class="report">
+          <summary>Bug prediction</summary>
+          <pre id="rep-bugs" class="report-body empty">—</pre>
+        </details>
+        <details class="report">
+          <summary>Pipeline summary</summary>
+          <pre id="rep-pipe" class="report-body empty">—</pre>
+        </details>
+      </section>
+
+      <footer class="note">
+        Raw JSON: <a href="/api/ai-dashboard" style="color: var(--accent)">/api/ai-dashboard</a> ·
+        Legacy: <a href="/ai-debug" style="color: var(--accent)">/ai-debug</a>
+      </footer>
+    </div>
+    <script src="/dashboard.js" defer></script>
+  </body>
+</html>
