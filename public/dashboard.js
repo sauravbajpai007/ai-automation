@@ -43,22 +43,29 @@
       updated.textContent = `Updated ${new Date(data.generatedAt || Date.now()).toLocaleString()}`;
 
       const la = data.logAnalysis;
-      $("#la-severity").textContent = la ? la.severity || "—" : "—";
-      $("#la-severity").className = "badge " + sevClass(la && la.severity);
+      const sev =
+        la &&
+        (la.severity ||
+          (la.verdict === "UNSAFE" ? "high" : la.verdict === "SAFE" ? "low" : null));
+      $("#la-severity").textContent = la ? sev || la.verdict || "—" : "—";
+      $("#la-severity").className = "badge " + sevClass(sev || (la && la.severity));
 
       $("#la-root").textContent = textOrEmpty(
-        la && la.root_cause,
-        la ? "No root cause field (run log analyzer with OpenAI for full output)." : "No log analysis yet."
+        la && (la.root_cause || la.verdict),
+        la ? "No analysis yet — run ./ai/ai_decision.sh or CI." : "No log analysis yet."
       );
       $("#la-fix").textContent = textOrEmpty(
         la && la.suggested_fix,
-        la ? "—" : "Run: python3 ai/log_analyzer.py backend_server.log"
+        la ? "—" : "Run Ollama CI scripts under ai-automation/coder/ai/."
       );
 
-      const structured = la && la.structured && la.structured.summary;
-      $("#la-stats").textContent = structured
-        ? `Lines: ${structured.total_lines} · CPU signals: ${structured.cpu_spike_signals} · Errors: ${structured.error_signals} · Timeouts: ${structured.timeout_signals}`
-        : "—";
+      const st = la && la.structured;
+      const summary = st && st.summary;
+      $("#la-stats").textContent = summary
+        ? `Lines: ${summary.total_lines} · CPU signals: ${summary.cpu_spike_signals} · Errors: ${summary.error_signals} · Timeouts: ${summary.timeout_signals}`
+        : st && typeof st.npmTestExit === "number"
+          ? `npm test exit code: ${st.npmTestExit} · source: ${la.source || "—"}`
+          : "—";
 
       const dd = data.deployDecision;
       if (dd && typeof dd.deploy === "boolean") {

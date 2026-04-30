@@ -8,9 +8,13 @@ const os = require("os");
 const app = express();
 /** Default avoids 8080 (often Jenkins / other Java stacks). Override with PORT=. */
 const PORT = Number(process.env.PORT) || 3040;
-const LOG_FILE = process.env.LOG_FILE || path.join(process.cwd(), "backend_server.log");
-const ANALYSIS_FILE = path.join(__dirname, "ai", "last_analysis.json");
 const REPO_ROOT = __dirname;
+const LOG_DIR = path.join(REPO_ROOT, "logs");
+// Default log under logs/ (ai/ is reserved for Ollama CI scripts in this project)
+const LOG_FILE = process.env.LOG_FILE || path.join(LOG_DIR, "backend_server.log");
+const ANALYSIS_FILE = path.join(LOG_DIR, "last_analysis.json");
+
+fs.mkdirSync(LOG_DIR, { recursive: true });
 
 const logStream = fs.createWriteStream(LOG_FILE, { flags: "a" });
 
@@ -102,7 +106,7 @@ app.get("/ai-debug", (_req, res) => {
 app.get("/api/ai-dashboard", (_req, res) => {
   try {
     const paths = {
-      logAnalysis: path.join(REPO_ROOT, "ai", "last_analysis.json"),
+      logAnalysis: path.join(REPO_ROOT, "logs", "last_analysis.json"),
       deployDecision: path.join(REPO_ROOT, "deploy_decision.json"),
       codeReview: path.join(REPO_ROOT, "ai_report.txt"),
       security: path.join(REPO_ROOT, "security_report.txt"),

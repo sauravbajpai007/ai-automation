@@ -1,3 +1,12 @@
 {"ts":"2026-04-29T10:20:19.619Z","level":"info","message":"server_listen","port":3040,"logFile":"/home/ulap93/Pictures/github-ai/backend_server.log"}
 {"ts":"2026-04-29T10:26:07.117Z","level":"info","message":"shutdown","signal":"SIGINT"}
 {"ts":"2026-04-29T10:26:10.438Z","level":"info","message":"server_listen","port":3040,"logFile":"/home/ulap93/Pictures/github-ai/backend_server.log"}
+{"ts":"2026-04-29T12:59:31.948Z","level":"info","message":"server_listen","port":3040,"logFile":"/home/ulap93/Pictures/github-ai/ai-automation/coder/backend_server.log"}
+{"ts":"2026-04-30T06:43:08.655Z","level":"alert","message":"cpu_overload_detected","load1m":6.16,"cores":4,"hint":"system load sustained above threshold"}
+{"ts":"2026-04-30T06:43:23.670Z","level":"alert","message":"cpu_overload_detected","load1m":6.85,"cores":4,"hint":"system load sustained above threshold"}
+{"ts":"2026-04-30T08:10:30.013Z","level":"alert","message":"cpu_overload_detected","load1m":6.89,"cores":4,"hint":"system load sustained above threshold"}
+{"ts":"2026-04-30T08:10:45.028Z","level":"alert","message":"cpu_overload_detected","load1m":6.44,"cores":4,"hint":"system load sustained above threshold"}
+{"ts":"2026-04-30T08:11:00.044Z","level":"alert","message":"cpu_overload_detected","load1m":6.11,"cores":4,"hint":"system load sustained above threshold"}
+{"ts":"2026-04-30T08:11:45.089Z","level":"alert","message":"cpu_overload_detected","load1m":7.01,"cores":4,"hint":"system load sustained above threshold"}
+{"ts":"2026-04-30T08:12:00.104Z","level":"alert","message":"cpu_overload_detected","load1m":6.43,"cores":4,"hint":"system load sustained above threshold"}
+{"ts":"2026-04-30T08:12:15.120Z","level":"alert","message":"cpu_overload_detected","load1m":6.17,"cores":4,"hint":"system load sustained above threshold"}
