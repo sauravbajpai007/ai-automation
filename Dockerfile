@@ -1,5 +1,5 @@
 # Production-oriented image: Node + Python (for AI scripts in container)
-FROM node:20-bookworm-slim  
+FROM node:20-bookworm-slim    
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \

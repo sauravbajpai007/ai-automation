@@ -10,3 +10,5 @@
 {"ts":"2026-04-30T08:11:45.089Z","level":"alert","message":"cpu_overload_detected","load1m":7.01,"cores":4,"hint":"system load sustained above threshold"}
 {"ts":"2026-04-30T08:12:00.104Z","level":"alert","message":"cpu_overload_detected","load1m":6.43,"cores":4,"hint":"system load sustained above threshold"}
 {"ts":"2026-04-30T08:12:15.120Z","level":"alert","message":"cpu_overload_detected","load1m":6.17,"cores":4,"hint":"system load sustained above threshold"}
+{"ts":"2026-04-30T09:23:19.395Z","level":"alert","message":"cpu_overload_detected","load1m":6.1,"cores":4,"hint":"system load sustained above threshold"}
+{"ts":"2026-04-30T09:23:34.410Z","level":"alert","message":"cpu_overload_detected","load1m":6.06,"cores":4,"hint":"system load sustained above threshold"}
