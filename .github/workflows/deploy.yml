@@ -1,0 +1,162 @@
+# Ollama-only AI CI/CD — Ollama jobs need a SELF-HOSTED runner (Settings → Actions → Runners).
+# If the Actions tab is empty: this file must exist on GitHub at
+#   .github/workflows/deploy.yml on the default branch (push with a PAT, not your password).
+# "Queued" forever: add a self-hosted runner, or `ollama` cannot run in cloud.
+# Prereq on self-hosted runner: Node 18+, npm, ollama, `ollama pull llama3`, git, curl.
+name: Ollama AI CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: ai-automation/coder
+
+jobs:
+  # Runs on GitHub-hosted — confirms the workflow file + paths are on the remote (visible in Actions).
+  validate-paths:
+    name: Validate repo layout (cloud)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check ai-automation/coder layout
+        run: |
+          set -e
+          test -d ai-automation/coder/ai
+          test -f ai-automation/coder/ai/ai_code_review.sh
+          test -f ai-automation/coder/ai/ai_test_generator.sh
+          test -f ai-automation/coder/ai/ai_decision.sh
+          test -f ai-automation/coder/ai/ai_rollback.sh
+          test -f ai-automation/coder/index.js
+          test -f ai-automation/coder/package.json
+          for s in ai-automation/coder/ai/*.sh; do bash -n "$s"; done
+          echo "Layout OK — Ollama steps still require a self-hosted runner."
+
+  # Stage (a): AI code review — PRs only
+  ai-code-review:
+    name: AI Code Review (Ollama)
+    if: github.event_name == 'pull_request'
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify Ollama
+        run: command -v ollama && ollama list | head -20 || true
+
+      - name: AI code review (llama3)
+        run: |
+          chmod +x ai/*.sh
+          ./ai/ai_code_review.sh
+
+      - name: Upload review artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-code-review-log
+          path: ai-automation/coder/logs/ai_code_review.txt
+          if-no-files-found: warn
+
+  # Stage (b): install + AI test generation
+  build-install-ai-testgen:
+    name: Build, install, AI test ideas
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ai-automation/coder/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci 2>/dev/null || npm install
+
+      - name: Verify Ollama
+        run: command -v ollama
+
+      - name: AI test generator (llama3)
+        run: |
+          chmod +x ai/*.sh
+          ./ai/ai_test_generator.sh
+
+      - name: Upload test suggestions
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-test-suggestions
+          path: ai-automation/coder/test-output/ai_generated_test_suggestions.txt
+          if-no-files-found: warn
+
+  # Stage (c): run app, tests, Ollama SAFE/UNSAFE gate
+  ai-decision:
+    name: AI decision (logs + tests)
+    needs: [build-install-ai-testgen]
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ai-automation/coder/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci 2>/dev/null || npm install
+
+      - name: AI decision gate (Ollama SAFE/UNSAFE)
+        id: gate
+        run: |
+          chmod +x ai/*.sh
+          ./ai/ai_decision.sh
+
+      - name: Upload decision artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-decision-logs
+          path: |
+            ai-automation/coder/logs/
+            ai-automation/coder/test-output/
+          if-no-files-found: warn
+
+  # Rollback when AI decision fails (push to main only — avoids rewriting PR refs)
+  ai-rollback:
+    name: Git rollback (HEAD~1)
+    needs: [ai-decision]
+    if: ${{ always() && needs.ai-decision.result == 'failure' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: self-hosted
+    steps:
+      - name: Checkout (full history for reset)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run rollback script
+        run: |
+          chmod +x ai-automation/coder/ai/ai_rollback.sh
+          ai-automation/coder/ai/ai_rollback.sh
+        working-directory: ${{ github.workspace }}
