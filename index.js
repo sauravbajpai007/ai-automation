@@ -1,13 +1,19 @@
 "use strict";
 
+// Optional: copy .env.example to .env and set PORT=...
+require("dotenv").config();
+
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
 const app = express();
-/** Default avoids 8080 (often Jenkins / other Java stacks). Override with PORT=. */
-const PORT = Number(process.env.PORT) || 3040;
+/**
+ * Default 3150 — avoids 8080 (Jenkins) and 3040 (often already in use).
+ * Override: .env (PORT=...), or `PORT=3040 npm start`, or `npm run start:3040`.
+ */
+const PORT = Number(process.env.PORT) || 3150;
 const REPO_ROOT = __dirname;
 const LOG_DIR = path.join(REPO_ROOT, "logs");
 // Default log under logs/ (ai/ is reserved for Ollama CI scripts in this project)
@@ -15,8 +21,20 @@ const LOG_FILE = process.env.LOG_FILE || path.join(LOG_DIR, "backend_server.log"
 const ANALYSIS_FILE = path.join(LOG_DIR, "last_analysis.json");
 
 fs.mkdirSync(LOG_DIR, { recursive: true });
+fs.mkdirSync(path.join(REPO_ROOT, "test-output"), { recursive: true });
 
 const logStream = fs.createWriteStream(LOG_FILE, { flags: "a" });
+
+/** Avoid JSON.stringify throwing on BigInt / lone UTF-16 surrogates in report text */
+function jsonPayload(value) {
+  return JSON.stringify(value, (_k, v) => {
+    if (typeof v === "bigint") return v.toString();
+    if (typeof v === "string") {
+      return v.replace(/[\uD800-\uDFFF]/g, "");
+    }
+    return v;
+  });
+}
 
 function safeReadUtf8(filePath) {
   try {
@@ -106,27 +124,41 @@ app.get("/ai-debug", (_req, res) => {
 app.get("/api/ai-dashboard", (_req, res) => {
   try {
     const paths = {
-      logAnalysis: path.join(REPO_ROOT, "logs", "last_analysis.json"),
+      logAnalysis: path.join(LOG_DIR, "last_analysis.json"),
       deployDecision: path.join(REPO_ROOT, "deploy_decision.json"),
+      /** Legacy OpenAI-era filenames at repo root */
       codeReview: path.join(REPO_ROOT, "ai_report.txt"),
       security: path.join(REPO_ROOT, "security_report.txt"),
       bugs: path.join(REPO_ROOT, "bug_report.txt"),
       pipelineSummary: path.join(REPO_ROOT, "pipeline_summary.txt"),
+      /** Ollama CI outputs (ai/*.sh) */
+      ollamaCodeReview: path.join(LOG_DIR, "ai_code_review.txt"),
+      ollamaTestIdeas: path.join(REPO_ROOT, "test-output", "ai_generated_test_suggestions.txt"),
+      ollamaDecisionRaw: path.join(LOG_DIR, "ollama_decision_raw.txt"),
+      npmTestLog: path.join(REPO_ROOT, "test-output", "npm-test.log"),
     };
 
     const logAnalysis = readJsonFile(paths.logAnalysis);
     const deployDecision = readJsonFile(paths.deployDecision);
 
-    res.json({
+    const legacyReview = safeReadUtf8(paths.codeReview);
+    const ollamaReview = safeReadUtf8(paths.ollamaCodeReview);
+    const mergedCodeReview = legacyReview || ollamaReview || null;
+
+    const payload = {
       ok: true,
       generatedAt: new Date().toISOString(),
       logAnalysis,
       deployDecision,
       reports: {
-        codeReview: safeReadUtf8(paths.codeReview),
+        codeReview: mergedCodeReview,
         security: safeReadUtf8(paths.security),
         bugs: safeReadUtf8(paths.bugs),
         pipelineSummary: safeReadUtf8(paths.pipelineSummary),
+        ollamaCodeReview,
+        ollamaTestIdeas: safeReadUtf8(paths.ollamaTestIdeas),
+        ollamaDecisionRaw: safeReadUtf8(paths.ollamaDecisionRaw),
+        npmTestLog: safeReadUtf8(paths.npmTestLog),
       },
       availability: {
         logAnalysis: fs.existsSync(paths.logAnalysis),
@@ -135,11 +167,20 @@ app.get("/api/ai-dashboard", (_req, res) => {
         security: fs.existsSync(paths.security),
         bugs: fs.existsSync(paths.bugs),
         pipelineSummary: fs.existsSync(paths.pipelineSummary),
+        ollamaCodeReview: fs.existsSync(paths.ollamaCodeReview),
+        ollamaTestIdeas: fs.existsSync(paths.ollamaTestIdeas),
+        ollamaDecisionRaw: fs.existsSync(paths.ollamaDecisionRaw),
+        npmTestLog: fs.existsSync(paths.npmTestLog),
       },
-    });
+    };
+
+    const body = jsonPayload(payload);
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.status(200).send(body);
   } catch (err) {
-    logLine("error", "ai_dashboard_api_failed", { error: String(err) });
-    res.status(500).json({ ok: false, error: "Failed to aggregate AI data" });
+    logLine("error", "ai_dashboard_api_failed", { error: String(err), stack: err.stack });
+    const detail = process.env.NODE_ENV === "production" ? undefined : String(err);
+    res.status(500).json({ ok: false, error: "Failed to aggregate AI data", detail });
   }
 });
 
@@ -192,7 +233,7 @@ server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
     // eslint-disable-next-line no-console
     console.error(
-      `[github-ai-backend] Port ${PORT} is already in use. Pick another, e.g. PORT=8050 npm start`
+      `[github-ai-backend] Port ${PORT} is already in use. Set another in .env or: PORT=3250 npm start`
     );
     process.exit(1);
   }

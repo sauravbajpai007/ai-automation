@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "start:3040": "PORT=3040 node index.js",
     "lint": "eslint .",
     "test": "node --test test/*.test.js"
   },
@@ -12,6 +13,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "express": "^4.21.0"
   },
   "devDependencies": {

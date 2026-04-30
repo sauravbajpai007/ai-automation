@@ -211,3 +211,20 @@ footer.note {
   font-size: 0.8rem;
   color: var(--muted);
 }
+
+footer.note a {
+  color: var(--accent);
+}
+
+.file-tag {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: normal;
+}
+
+header .sub code {
+  font-size: 0.8rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}

@@ -3,15 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AI Operations Dashboard</title>
+    <title>AI / Ollama Dashboard</title>
     <link rel="stylesheet" href="/dashboard.css" />
   </head>
   <body>
     <div class="shell">
       <header class="top">
         <div>
-          <h1>AI operations dashboard</h1>
-          <p class="sub">Log analysis, deploy gate, and CI report snapshots</p>
+          <h1>AI &amp; Ollama dashboard</h1>
+          <p class="sub">
+            Live view of the SAFE/UNSAFE gate, Ollama CI outputs, and logs — refresh after running
+            <code>./ai/*.sh</code> or GitHub Actions.
+          </p>
         </div>
         <div class="toolbar">
           <span class="meta" id="updated">Loading…</span>
@@ -23,13 +26,13 @@
 
       <div class="grid two">
         <section class="card">
-          <h2>Log analysis</h2>
+          <h2>AI gate (SAFE / UNSAFE)</h2>
           <div class="stack">
             <div>
               <span id="la-severity" class="badge neutral">—</span>
             </div>
             <dl class="kv">
-              <dt>Root cause</dt>
+              <dt>Verdict / summary</dt>
               <dd id="la-root">—</dd>
               <dt>Suggested fix</dt>
               <dd id="la-fix">—</dd>
@@ -40,7 +43,7 @@
         </section>
 
         <section class="card">
-          <h2>Deploy decision</h2>
+          <h2>Deploy decision (optional)</h2>
           <div class="stack">
             <div>
               <span id="dd-deploy" class="badge neutral">—</span>
@@ -59,11 +62,33 @@
       </div>
 
       <section class="card" style="margin-top: 1rem">
-        <h2>CI / AI reports</h2>
-        <p class="meta" id="rep-meta" style="margin: 0 0 0.75rem">—</p>
+        <h2>Ollama CI outputs (llama3)</h2>
+        <p class="meta" id="ollama-meta" style="margin: 0 0 0.75rem">—</p>
 
         <details class="report" open>
-          <summary>Code review</summary>
+          <summary>Ollama code review (<span class="file-tag">logs/ai_code_review.txt</span>)</summary>
+          <pre id="rep-ollama-cr" class="report-body empty">—</pre>
+        </details>
+        <details class="report" open>
+          <summary>AI test suggestions (<span class="file-tag">test-output/ai_generated_test_suggestions.txt</span>)</summary>
+          <pre id="rep-ollama-tests" class="report-body empty">—</pre>
+        </details>
+        <details class="report">
+          <summary>Last Ollama decision (raw) (<span class="file-tag">logs/ollama_decision_raw.txt</span>)</summary>
+          <pre id="rep-ollama-raw" class="report-body empty">—</pre>
+        </details>
+        <details class="report">
+          <summary>npm test log (<span class="file-tag">test-output/npm-test.log</span>)</summary>
+          <pre id="rep-npm-test" class="report-body empty">—</pre>
+        </details>
+      </section>
+
+      <section class="card" style="margin-top: 1rem">
+        <h2>Legacy / other reports</h2>
+        <p class="meta" id="rep-meta" style="margin: 0 0 0.75rem">—</p>
+
+        <details class="report">
+          <summary>Code review (merged / legacy)</summary>
           <pre id="rep-code" class="report-body empty">—</pre>
         </details>
         <details class="report">
@@ -81,8 +106,9 @@
       </section>
 
       <footer class="note">
-        Raw JSON: <a href="/api/ai-dashboard" style="color: var(--accent)">/api/ai-dashboard</a> ·
-        Legacy: <a href="/ai-debug" style="color: var(--accent)">/ai-debug</a>
+        API: <a href="/api/ai-dashboard">/api/ai-dashboard</a> ·
+        <a href="/ai-debug">/ai-debug</a> ·
+        <a href="/health">/health</a>
       </footer>
     </div>
     <script src="/dashboard.js" defer></script>

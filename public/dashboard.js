@@ -38,7 +38,17 @@
     btn.disabled = true;
     try {
       const r = await fetch("/api/ai-dashboard", { headers: { Accept: "application/json" } });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok) {
+        let extra = "";
+        try {
+          const j = await r.json();
+          if (j && j.detail) extra = `: ${j.detail}`;
+          else if (j && j.error) extra = `: ${j.error}`;
+        } catch (_) {
+          /* ignore */
+        }
+        throw new Error(`HTTP ${r.status}${extra}`);
+      }
       const data = await r.json();
       updated.textContent = `Updated ${new Date(data.generatedAt || Date.now()).toLocaleString()}`;
 
@@ -93,16 +103,53 @@
       }
 
       const rep = (data.reports && data.reports) || {};
+
+      const MAX_RAW = 16000;
+      function fillTrunc(id, content, label) {
+        const el = $(id);
+        if (!el) return;
+        const s = content != null ? String(content).trim() : "";
+        if (!s) {
+          el.textContent = `No ${label} yet — run ./ai/ai_code_review.sh or CI.`;
+          el.classList.add("empty");
+          return;
+        }
+        if (s.length > MAX_RAW) {
+          el.textContent = `${s.slice(0, MAX_RAW)}\n\n… (${s.length - MAX_RAW} more characters — see full file on disk)`;
+        } else {
+          el.textContent = s;
+        }
+        el.classList.remove("empty");
+      }
+
+      fillTrunc("#rep-ollama-cr", rep.ollamaCodeReview, "Ollama code review");
+      fillTrunc("#rep-ollama-tests", rep.ollamaTestIdeas, "test suggestions");
+      fillTrunc("#rep-ollama-raw", rep.ollamaDecisionRaw, "raw decision");
+      fillTrunc("#rep-npm-test", rep.npmTestLog, "npm test log");
+
       fillReport("#rep-code", rep.codeReview);
       fillReport("#rep-sec", rep.security);
       fillReport("#rep-bugs", rep.bugs);
       fillReport("#rep-pipe", rep.pipelineSummary);
 
       const av = data.availability || {};
+      const ollamaKeys = [
+        "ollamaCodeReview",
+        "ollamaTestIdeas",
+        "ollamaDecisionRaw",
+        "npmTestLog",
+        "logAnalysis",
+      ];
+      $("#ollama-meta").textContent =
+        ollamaKeys
+          .filter((k) => av[k])
+          .map((k) => k)
+          .join(", ") || "No Ollama artifacts on disk yet";
+
       $("#rep-meta").textContent = Object.keys(av)
-        .filter((k) => av[k])
+        .filter((k) => av[k] && !ollamaKeys.includes(k))
         .map((k) => k)
-        .join(", ") || "No report files on disk";
+        .join(", ") || "No extra legacy files";
     } catch (e) {
       setBanner(errEl, `Could not load dashboard data: ${e.message}`, true);
     } finally {

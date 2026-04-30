@@ -1,0 +1,6 @@
+node_modules/
+.env
+npm-debug.log
+backend_server.log
+logs/*.log
+!logs/.gitkeep
