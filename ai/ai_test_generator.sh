@@ -22,7 +22,8 @@ INDEX="${CODER_ROOT}/index.js"
 PKG="${CODER_ROOT}/package.json"
 EXISTING_TESTS=""
 if [[ -d "${CODER_ROOT}/test" ]]; then
-  EXISTING_TESTS="$(find "${CODER_ROOT}/test" -type f -name '*.js' -maxdepth 3 2>/dev/null | head -5 | while read -r p; do echo "=== $p ==="; head -c 8000 "$p" 2>/dev/null || true; echo; done)"
+  # -maxdepth must precede -type on GNU find (avoids non-zero exit with set -e)
+  EXISTING_TESTS="$(find "${CODER_ROOT}/test" -maxdepth 3 -type f -name '*.js' 2>/dev/null | head -5 | while read -r p; do echo "=== $p ==="; head -c 8000 "$p" 2>/dev/null || true; echo; done)"
 fi
 
 SNAP=""
@@ -62,5 +63,5 @@ fi
 } >"${OUT_FILE}"
 
 echo "==> Wrote ${OUT_FILE}"
-head -30 "${OUT_FILE}"
+head -30 "${OUT_FILE}" || true
 exit 0

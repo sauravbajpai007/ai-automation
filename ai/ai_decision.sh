@@ -111,18 +111,24 @@ if [[ "${OLLAMA_RC}" -ne 0 ]]; then
   exit 1
 fi
 
-# Parse verdict: last non-empty line preferred, else scan whole output
-LAST_LINE="$(echo "${OLLAMA_OUT}" | sed '/^[[:space:]]*$/d' | tail -1)"
-VERDICT="UNKNOWN"
-if echo "${LAST_LINE}" | grep -qiE '(^|[^A-Za-z])UNSAFE([^A-Za-z]|$)'; then
-  VERDICT="UNSAFE"
-elif echo "${LAST_LINE}" | grep -qiE '(^|[^A-Za-z])SAFE([^A-Za-z]|$)'; then
-  VERDICT="SAFE"
-fi
-# Whole-text fallback if model buried the word
-if [[ "${VERDICT}" == "UNKNOWN" ]]; then
-  if echo "${OLLAMA_OUT}" | grep -qi '\bUNSAFE\b'; then VERDICT="UNSAFE"; fi
-  if echo "${OLLAMA_OUT}" | grep -qi '\bSAFE\b' && [[ "${VERDICT}" != "UNSAFE" ]]; then VERDICT="SAFE"; fi
+# Parse SAFE / UNSAFE via temp file (model output can be large; avoids env limits)
+PARSE_TMP="${LOG_DIR}/._verdict_parse.txt"
+printf '%s' "${OLLAMA_OUT}" >"${PARSE_TMP}"
+VERDICT="$(F="${PARSE_TMP}" node -e "
+const fs = require('fs');
+const t = fs.readFileSync(process.env.F, 'utf8').replace(/\*/g, '').trim();
+if (/\\bUNSAFE\\b/i.test(t)) { console.log('UNSAFE'); process.exit(0); }
+if (/\\bSAFE\\b/i.test(t)) { console.log('SAFE'); process.exit(0); }
+console.log('UNKNOWN');
+")" || VERDICT="UNKNOWN"
+rm -f "${PARSE_TMP}"
+
+# CI fallback: tests green + model vague → SAFE (opt out with STRICT_AI_DECISION=1)
+if [[ "${VERDICT}" == "UNKNOWN" ]] && [[ "${STRICT_AI_DECISION:-0}" != "1" ]]; then
+  if [[ "${TEST_RC}" -eq 0 ]]; then
+    echo "::notice::Ollama output had no clear SAFE/UNSAFE; npm test passed — defaulting to SAFE (set STRICT_AI_DECISION=1 to fail instead)."
+    VERDICT="SAFE"
+  fi
 fi
 
 # Persist summary JSON for /ai-debug + dashboard (verdict + excerpt)

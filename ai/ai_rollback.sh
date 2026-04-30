@@ -33,13 +33,19 @@ git reset --hard HEAD~1
 echo "==> New HEAD: $(git rev-parse --short HEAD) $(git log -1 --oneline)"
 echo "Rollback complete. Working tree matches previous commit."
 
+# Never force-push from GitHub Actions: GITHUB_TOKEN cannot update workflow files on main
+# ("refusing to allow ... workflow .github/workflows/... without workflows permission").
+if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+  echo "::notice::Skipping git push in CI — reset is local to the runner only. Revert main on GitHub via the UI or a PAT with workflow scope if required."
+  exit 0
+fi
+
 if [[ "${GIT_PUSH_ROLLBACK:-0}" == "1" ]]; then
-  # Optional: rewrite remote (use only if you understand the blast radius)
   BR="$(git rev-parse --abbrev-ref HEAD)"
-  echo "==> GIT_PUSH_ROLLBACK=1 — force-pushing ${BR} (opt-in)..."
+  echo "==> GIT_PUSH_ROLLBACK=1 — force-pushing ${BR} (opt-in, local machine only)..."
   git push origin "${BR}" --force
 else
-  echo "Note: Remote unchanged. To update origin (DANGEROUS), run:"
+  echo "Note: Remote unchanged. To force-push (dangerous), run locally:"
   echo "  GIT_PUSH_ROLLBACK=1 ${0}"
 fi
 
