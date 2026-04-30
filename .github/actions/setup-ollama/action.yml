@@ -1,0 +1,31 @@
+# Installs Ollama on GitHub-hosted Ubuntu so jobs do not require a self-hosted runner.
+# May be slow (model download) or hit memory limits; use a self-hosted runner for heavy models.
+name: Setup Ollama
+description: Install Ollama, start the server, pull llama3
+runs:
+  using: composite
+  steps:
+    - name: Install and start Ollama
+      shell: bash
+      run: |
+        set -euo pipefail
+        if command -v ollama >/dev/null 2>&1; then
+          echo "Ollama already on PATH"
+        else
+          curl -fsSL https://ollama.com/install.sh | sh
+        fi
+        nohup ollama serve > /tmp/ollama-serve.log 2>&1 &
+        echo "Waiting for API..."
+        for i in $(seq 1 60); do
+          if curl -fsS "http://127.0.0.1:11434/api/tags" >/dev/null 2>&1; then
+            echo "Ollama is up"
+            break
+          fi
+          if [[ "$i" -eq 60 ]]; then
+            echo "::error::Ollama server did not become ready" >&2
+            tail -100 /tmp/ollama-serve.log || true
+            exit 1
+          fi
+          sleep 2
+        done
+        ollama pull llama3
