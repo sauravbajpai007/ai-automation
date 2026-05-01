@@ -1,10 +1,15 @@
+# Ollama AI CI — runs on GitHub-hosted Ubuntu (no self-hosted runner required).
+# Optional: switch `runs-on` to `self-hosted` if you prefer a local GPU / larger disk.
+# Layout: monorepo `ai-automation/coder/` OR flat repo with `./ai/` + index.js.
 name: Ollama AI CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -12,157 +17,152 @@ permissions:
 
 jobs:
   validate-paths:
-    name: Validate repo layout
+    name: Validate repo layout (cloud)
+    # Avoid re-running the full pipeline when CI commits dashboard files with [skip ci].
+    if: ${{ !(github.event_name == 'push' && contains(github.event.head_commit.message || '', '[skip ci]')) }}
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Detect layout and verify files
         run: |
           set -euo pipefail
+          shopt -s nullglob
 
           if [[ -d ai-automation/coder/ai && -f ai-automation/coder/index.js ]]; then
             R="ai-automation/coder"
           elif [[ -d ai && -f index.js && -f package.json ]]; then
             R="."
           else
-            echo "Invalid repo structure"
+            echo "::error::Cannot find app root. Expected either:" >&2
+            echo "  - ai-automation/coder/index.js + ai-automation/coder/ai/*.sh" >&2
+            echo "  - OR ./index.js + ./package.json + ./ai/*.sh" >&2
+            echo "::group::Repository tree (top levels)"
             ls -la
+            echo "::endgroup::"
             exit 1
           fi
 
-          echo "CODER_ROOT=$R" >> $GITHUB_ENV
-
+          echo "Detected CODER_ROOT=${R}"
           for name in ai_code_review ai_test_generator ai_decision ai_rollback; do
-            test -f "$R/ai/${name}.sh"
+            test -f "${R}/ai/${name}.sh"
           done
+          test -f "${R}/index.js"
+          test -f "${R}/package.json"
+          test -f "${R}/lib/reviewDemo.js"
 
-          test -f "$R/index.js"
-          test -f "$R/package.json"
-
-          for s in "$R/ai/"*.sh; do
+          for s in "${R}/ai/"*.sh; do
+            echo "bash -n: $s"
             bash -n "$s"
           done
 
-  ai-code-review:
-    name: AI Code Review
-    needs: validate-paths
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+          echo "Layout OK."
 
+  # Single runner so review + test ideas + decision share one workspace (dashboard files stay in sync).
+  ollama-pipeline:
+    name: Ollama pipeline (review → test ideas → gate)
+    needs: [validate-paths]
+    if: ${{ !(github.event_name == 'push' && contains(github.event.head_commit.message || '', '[skip ci]')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Resolve CODER_ROOT
         run: |
-          if [[ -d ai-automation/coder/ai ]]; then
-            echo "CODER_ROOT=ai-automation/coder" >> $GITHUB_ENV
+          set -e
+          if [[ -d ai-automation/coder/ai && -f ai-automation/coder/index.js ]]; then
+            echo "CODER_ROOT=ai-automation/coder" >> "$GITHUB_ENV"
+          elif [[ -d ai && -f index.js ]]; then
+            echo "CODER_ROOT=." >> "$GITHUB_ENV"
           else
-            echo "CODER_ROOT=." >> $GITHUB_ENV
+            echo "::error::Cannot resolve app directory"; ls -la; exit 1
           fi
 
-      - uses: ./.github/actions/setup-ollama
+      - name: Setup Ollama (install + pull llama3)
+        uses: ./.github/actions/setup-ollama
 
-      - name: Run AI Review
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ${{ env.CODER_ROOT }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ env.CODER_ROOT }}
+        run: npm ci 2>/dev/null || npm install
+
+      - name: Run Ollama CI scripts (sequential)
         working-directory: ${{ env.CODER_ROOT }}
         run: |
+          set -euo pipefail
           chmod +x ai/*.sh
           ./ai/ai_code_review.sh
-
-  build-install-ai-testgen:
-    name: Build & AI Test Generation
-    needs: validate-paths
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve CODER_ROOT
-        run: |
-          if [[ -d ai-automation/coder/ai ]]; then
-            echo "CODER_ROOT=ai-automation/coder" >> $GITHUB_ENV
-          else
-            echo "CODER_ROOT=." >> $GITHUB_ENV
-          fi
-
-      - uses: ./.github/actions/setup-ollama
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install dependencies
-        working-directory: ${{ env.CODER_ROOT }}
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Run AI Test Generator
-        working-directory: ${{ env.CODER_ROOT }}
-        run: |
-          chmod +x ai/*.sh
           ./ai/ai_test_generator.sh
-
-  ai-decision:
-    name: AI Decision
-    needs: build-install-ai-testgen
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve CODER_ROOT
-        run: |
-          if [[ -d ai-automation/coder/ai ]]; then
-            echo "CODER_ROOT=ai-automation/coder" >> $GITHUB_ENV
-          else
-            echo "CODER_ROOT=." >> $GITHUB_ENV
-          fi
-
-      - uses: ./.github/actions/setup-ollama
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install dependencies
-        working-directory: ${{ env.CODER_ROOT }}
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Run AI Decision
-        working-directory: ${{ env.CODER_ROOT }}
-        run: |
-          chmod +x ai/*.sh
           ./ai/ai_decision.sh
 
-  ai-rollback:
-    name: Auto Rollback
-    needs: ai-decision
-    if: ${{ failure() && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ollama-dashboard-bundle
+          path: |
+            ${{ env.CODER_ROOT }}/logs/
+            ${{ env.CODER_ROOT }}/test-output/
+          if-no-files-found: warn
 
+      # After merge to main, commit generated *.txt / *.json so `git pull` shows data in the local dashboard.
+      - name: Commit Ollama outputs for local dashboard
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          CODER_ROOT: ${{ env.CODER_ROOT }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          R="${CODER_ROOT}"
+          mkdir -p "${R}/logs" "${R}/test-output"
+          shopt -s nullglob
+          paths=( "${R}/logs/"*.txt "${R}/logs/"*.json "${R}/test-output/"* )
+          shopt -u nullglob
+          if [[ ${#paths[@]} -eq 0 ]]; then
+            echo "No generated files to stage."
+          else
+            git add -- "${paths[@]}"
+          fi
+          if git diff --staged --quiet; then
+            echo "No Ollama output changes to commit."
+          else
+            git commit -m "chore(ci): refresh Ollama dashboard inputs [skip ci]"
+            git push
+          fi
+
+  ai-rollback:
+    name: Git rollback (HEAD~1)
+    needs: [ollama-pipeline]
+    if: ${{ always() && needs.ollama-pipeline.result == 'failure' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Git Auth
+      - name: Resolve CODER_ROOT
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
+          set -e
+          if [[ -d ai-automation/coder/ai && -f ai-automation/coder/index.js ]]; then
+            echo "CODER_ROOT=ai-automation/coder" >> "$GITHUB_ENV"
+          elif [[ -d ai && -f index.js ]]; then
+            echo "CODER_ROOT=." >> "$GITHUB_ENV"
+          else
+            echo "CODER_ROOT=." >> "$GITHUB_ENV"
+          fi
 
-      - name: Rollback last commit
+      - name: Run rollback script
+        working-directory: ${{ github.workspace }}
         run: |
-          git reset --hard HEAD~1
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git --force
+          chmod +x "${CODER_ROOT}/ai/ai_rollback.sh"
+          "${CODER_ROOT}/ai/ai_rollback.sh"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CODER_ROOT: ${{ env.CODER_ROOT }}
