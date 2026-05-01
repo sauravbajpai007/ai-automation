@@ -18,6 +18,10 @@ if ! command -v ollama >/dev/null 2>&1; then
   exit 2
 fi
 
+# shellcheck source=ensure_ollama.sh
+source "${SCRIPT_DIR}/ensure_ollama.sh"
+ensure_ollama_running || exit 2
+
 INDEX="${CODER_ROOT}/index.js"
 PKG="${CODER_ROOT}/package.json"
 EXISTING_TESTS=""
@@ -28,6 +32,15 @@ fi
 
 SNAP=""
 [[ -f "${INDEX}" ]] && SNAP+="===== index.js (excerpt) ====="$'\n'"$(head -c 12000 "${INDEX}")"$'\n\n'
+for rel in \
+  lib/reviewDemo.js \
+  lib/dummySamples.js \
+  lib/dummyWorkspace.js \
+  lib/dummyMetrics.js \
+  lib/dummyIntegration.js; do
+  p="${CODER_ROOT}/${rel}"
+  [[ -f "${p}" ]] && SNAP+="===== ${rel} ====="$'\n'"$(head -c 8000 "${p}")"$'\n\n'
+done
 [[ -f "${PKG}" ]] && SNAP+="===== package.json ====="$'\n'"$(cat "${PKG}")"$'\n\n'
 SNAP+="===== existing tests (excerpt) ====="$'\n'"${EXISTING_TESTS:-"(none found)"}"$'\n'
 

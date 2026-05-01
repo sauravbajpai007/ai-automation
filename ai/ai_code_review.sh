@@ -20,9 +20,20 @@ if ! command -v ollama >/dev/null 2>&1; then
   exit 2
 fi
 
-# Bounded snapshot of files we care about (avoid huge prompts)
+# shellcheck source=ensure_ollama.sh
+source "${SCRIPT_DIR}/ensure_ollama.sh"
+ensure_ollama_running || exit 2
+
+# Bounded snapshot of backend files (avoid huge prompts)
 bundle=""
-for f in index.js package.json; do
+for f in \
+  index.js \
+  package.json \
+  lib/reviewDemo.js \
+  lib/dummySamples.js \
+  lib/dummyWorkspace.js \
+  lib/dummyMetrics.js \
+  lib/dummyIntegration.js; do
   path="${CODER_ROOT}/${f}"
   if [[ -f "${path}" ]]; then
     content="$(head -c 24000 "${path}" 2>/dev/null || true)"
@@ -34,7 +45,7 @@ for f in index.js package.json; do
 done
 
 if [[ -z "${bundle}" ]]; then
-  echo "ERROR: No index.js / package.json found under ${CODER_ROOT}" >&2
+  echo "ERROR: No reviewable files found under ${CODER_ROOT} (need index.js)" >&2
   exit 2
 fi
 

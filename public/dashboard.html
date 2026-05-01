@@ -12,8 +12,10 @@
         <div>
           <h1>AI &amp; Ollama dashboard</h1>
           <p class="sub">
-            Live view of the SAFE/UNSAFE gate, Ollama CI outputs, and logs — refresh after running
-            <code>./ai/*.sh</code> or GitHub Actions.
+            Ollama only fills this page after it writes text files under <code>logs/</code> and
+            <code>test-output/</code>. Locally (with Ollama installed):
+            <code>npm run ollama:review</code> · <code>npm run ollama:tests</code> ·
+            <code>npm run ollama:decision</code> — or run GitHub Actions.
           </p>
         </div>
         <div class="toolbar">
@@ -67,11 +69,11 @@
 
         <details class="report" open>
           <summary>Ollama code review (<span class="file-tag">logs/ai_code_review.txt</span>)</summary>
-          <pre id="rep-ollama-cr" class="report-body empty">—</pre>
+          <pre id="rep-ollama-cr" class="report-body empty">Loading…</pre>
         </details>
         <details class="report" open>
           <summary>AI test suggestions (<span class="file-tag">test-output/ai_generated_test_suggestions.txt</span>)</summary>
-          <pre id="rep-ollama-tests" class="report-body empty">—</pre>
+          <pre id="rep-ollama-tests" class="report-body empty">Loading…</pre>
         </details>
         <details class="report">
           <summary>Last Ollama decision (raw) (<span class="file-tag">logs/ollama_decision_raw.txt</span>)</summary>

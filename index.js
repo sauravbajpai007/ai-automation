@@ -80,6 +80,11 @@ app.use((req, res, next) => {
   next();
 });
 
+const { registerReviewDemo } = require("./lib/reviewDemo");
+const { registerDummySamples } = require("./lib/dummySamples");
+registerReviewDemo(app);
+registerDummySamples(app);
+
 /** Simple CPU load sampling: warn if 1m load average exceeds core count */
 function startCpuWatchdog() {
   const cores = os.cpus().length || 1;
@@ -202,6 +207,8 @@ app.get("/", (req, res) => {
       health: "/health",
       aiDebug: "/ai-debug",
       aiDashboardApi: "/api/ai-dashboard",
+      demoRoutes: "/demo/ping",
+      dummySamples: "/dummy-samples/metrics",
     },
   });
 });

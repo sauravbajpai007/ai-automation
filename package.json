@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "start:3040": "PORT=3040 node index.js",
+    "ollama:review": "bash ai/ai_code_review.sh",
+    "ollama:tests": "bash ai/ai_test_generator.sh",
+    "ollama:decision": "bash ai/ai_decision.sh",
     "lint": "eslint .",
     "test": "node --test test/*.test.js"
   },

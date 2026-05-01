@@ -23,6 +23,10 @@ if ! command -v ollama >/dev/null 2>&1; then
   exit 2
 fi
 
+# shellcheck source=ensure_ollama.sh
+source "${SCRIPT_DIR}/ensure_ollama.sh"
+ensure_ollama_running || exit 2
+
 # Ephemeral port to reduce collisions with Jenkins/other locals
 export PORT="${PORT:-3150}"
 export LOG_FILE="${LOG_DIR}/backend_server.log"
